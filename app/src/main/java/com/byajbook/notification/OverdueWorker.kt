@@ -49,13 +49,17 @@ class OverdueWorker @AssistedInject constructor(
         }
 
         // 2. Overshoot Check
-        val activeGiven = recordRepository.getActiveGivenRecords().first()
+        val activeGivenRecords = activeRecords.filter { it.type == com.byajbook.domain.model.RecordType.GIVEN }
         val currentRates = itemRateRepository.getCurrentRates().first()
-        val totalPaidList = recordRepository.getTotalPaidFlow().first()
-        val totalPaidMap = totalPaidList.associateBy({ it.recordId }, { it.totalPaid })
+        
+        val activeGivenIds = activeGivenRecords.map { it.id }
+        val totalPaidList = activeGivenIds.chunked(500).flatMap { batch ->
+            recordRepository.getTotalPaidByRecordIds(batch)
+        }
+        val totalPaidMap = totalPaidList.associate { it.recordId to it.totalPaid }
 
         val alerts = computeCollectionAlerts(
-            records = activeGiven,
+            records = activeGivenRecords,
             rates = currentRates,
             totalPaidMap = totalPaidMap
         )

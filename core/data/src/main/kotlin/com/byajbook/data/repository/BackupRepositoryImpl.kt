@@ -53,28 +53,31 @@ class BackupRepositoryImpl @Inject constructor(
     }
 
     override suspend fun importBackup(json: String): Result<Unit> = runCatching {
-        val element = BackupSerializer.json.parseToJsonElement(json)
-        
-        val wrapper = when (element) {
-            is JsonArray -> {
-                // Legacy bare-array format [FIX-IMPORT-LEGACY-1]
-                val records = BackupSerializer.legacyJson.decodeFromJsonElement<List<BackupRecord>>(element)
-                BackupWrapper(version = "legacy", customers = emptyList(), records = records)
-            }
-            is JsonObject -> {
-                val version = element["version"]?.jsonPrimitive?.content
-                when (version) {
-                    "1.1" -> {
-                        val dto = BackupSerializer.json.decodeFromJsonElement<BackupWrapper>(element)
-                        BackupSerializer.migrate_1_1_to_1_2(dto)
-                    }
-                    BackupSerializer.BACKUP_VERSION -> {
-                        BackupSerializer.json.decodeFromJsonElement<BackupWrapper>(element)
-                    }
-                    else -> throw Exception("This backup was created by a newer version of ByajBook. Please update the app before importing.")
+        val wrapper = try {
+            val element = BackupSerializer.json.parseToJsonElement(json)
+            when (element) {
+                is JsonArray -> {
+                    // Legacy bare-array format [FIX-IMPORT-LEGACY-1]
+                    val records = BackupSerializer.legacyJson.decodeFromJsonElement<List<BackupRecord>>(element)
+                    BackupWrapper(version = "legacy", customers = emptyList(), records = records)
                 }
+                is JsonObject -> {
+                    val version = element["version"]?.jsonPrimitive?.content
+                    when (version) {
+                        "1.1" -> {
+                            val dto = BackupSerializer.json.decodeFromJsonElement<BackupWrapper>(element)
+                            BackupSerializer.migrate_1_1_to_1_2(dto)
+                        }
+                        BackupSerializer.BACKUP_VERSION -> {
+                            BackupSerializer.json.decodeFromJsonElement<BackupWrapper>(element)
+                        }
+                        else -> throw Exception("This backup was created by a newer version of ByajBook. Please update the app before importing.")
+                    }
+                }
+                else -> throw Exception("Invalid backup format")
             }
-            else -> throw Exception("Invalid backup format")
+        } catch (e: kotlinx.serialization.SerializationException) {
+            throw Exception("This backup was created by a newer version of ByajBook. Please update the app before importing.", e)
         }
 
         performImport(wrapper)
@@ -83,10 +86,39 @@ class BackupRepositoryImpl @Inject constructor(
     private suspend fun performImport(wrapper: BackupWrapper) {
         mutex.withLock {
             withContext(singleThreadDispatcher) {
+                // Pre-validate displayId and transactionId conflicts before starting transaction
+                val existingCustomers = customerDao.getAll().first()
+                val existingRecords = recordDao.getAllActiveOnce()
+
+                wrapper.customers.forEach { backupCust ->
+                    val conflict = existingCustomers.find { 
+                        it.displayId.equals(backupCust.displayId, ignoreCase = true) && it.id != backupCust.id 
+                    }
+                    if (conflict != null) {
+                        throw Exception("Customer conflict: Customer '${backupCust.name}' (ID: ${backupCust.displayId}) conflicts with existing customer '${conflict.name}'.")
+                    }
+                }
+
+                wrapper.records.forEach { backupRec ->
+                    if (backupRec.transactionId.isNotEmpty()) {
+                        val conflict = existingRecords.find { 
+                            it.transactionId.equals(backupRec.transactionId, ignoreCase = true) && it.id != backupRec.id 
+                        }
+                        if (conflict != null) {
+                            throw Exception("Record conflict: Transaction '${backupRec.transactionId}' conflicts with an existing record.")
+                        }
+                    }
+                }
+
                 database.withTransaction {
                     // 1. Process Customers
                     wrapper.customers.forEach { backupCust ->
-                        customerDao.insert(backupCust.toEntity())
+                        val existing = customerDao.getByIdOnce(backupCust.id)
+                        if (existing != null) {
+                            customerDao.update(backupCust.toEntity())
+                        } else {
+                            customerDao.insert(backupCust.toEntity())
+                        }
                     }
 
                     // 2. Process Records
@@ -99,7 +131,16 @@ class BackupRepositoryImpl @Inject constructor(
                         }
                         
                         val recordEntity = backupRec.toEntity(transactionId)
-                        recordDao.insert(recordEntity)
+                        val existing = recordDao.getByIdOnce(backupRec.id)
+                        if (existing != null) {
+                            recordDao.update(recordEntity)
+                        } else {
+                            recordDao.insert(recordEntity)
+                        }
+                        
+                        // Clear old items and payments to prevent duplicate constraints or orphan rows
+                        itemDao.deleteByRecordId(backupRec.id)
+                        paymentDao.deleteByRecordId(backupRec.id)
                         
                         itemDao.insertAll(backupRec.items.map { it.toEntity() })
                         backupRec.payments.forEach { paymentDao.insert(it.toEntity()) }

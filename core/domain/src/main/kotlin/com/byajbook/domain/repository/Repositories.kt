@@ -40,12 +40,9 @@ interface SettingsRepository {
     fun getSettings(): Flow<Settings>
     suspend fun updateSettings(settings: Settings)
     
-    /**
-     * [FIX-CLEARDATA-BUG-1] & [FIX-ARCH-DEBT-1]
-     * KNOWN DEBT: this method is on SettingsRepository for DI convenience only (SettingsViewModel
-     * already injects it). It deletes customers (+ cascaded records/items/payments) and has no relationship to settings.
-     * TODO v2: move to DataManagementRepository when a separate data-management screen is introduced.
-     */
+    // KNOWN DEBT: this method is on SettingsRepository for DI convenience only (SettingsViewModel
+    // already injects it). It deletes customers (+ cascaded records/items/payments) and has no relationship to settings.
+    // TODO v2: move to DataManagementRepository when a separate data-management screen is introduced.
     suspend fun clearTransactionData()
 }
 

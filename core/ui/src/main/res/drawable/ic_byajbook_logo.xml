@@ -1,12 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="24dp"
-    android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="32dp"
+    android:height="32dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <!-- Ledger Card 1 (Back, Cyan) -->
     <path
-        android:fillColor="#005AC1"
-        android:pathData="M12,2C6.48,2 2,6.48 2,12s4.48,10 10,10 10,-4.48 10,-10S17.52,2 12,2zM12,20c-4.41,0 -8,-3.59 -8,-8s3.59,-8 8,-8 8,3.59 8,8 -3.59,8 -8,8z" />
+        android:pathData="M14,12h14c1.65,0 3,1.35 3,3v14c0,1.65 -1.35,3 -3,3h-14c-1.65,0 -3,-1.35 -3,-3v-14c0,-1.65 1.35,-3 3,-3z"
+        android:fillAlpha="0.35">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="11"
+                android:startY="12"
+                android:endX="31"
+                android:endY="32"
+                android:type="linear">
+                <item android:offset="0" android:color="#00F2FE" />
+                <item android:offset="1" android:color="#4FACFE" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Ledger Card 2 (Front, Gold) -->
     <path
-        android:fillColor="#005AC1"
-        android:pathData="M12.5,7h-2v1h-1v2h1v1h-1v2h1v1h2v-1h1v-2h-1v-1h1v-2h-1L12.5,7zM11.5,10.5v-1h1v1H11.5zM11.5,14.5v-1h1v1H11.5z" />
+        android:pathData="M18,16h14c1.65,0 3,1.35 3,3v14c0,1.65 -1.35,3 -3,3h-14c-1.65,0 -3,-1.35 -3,-3v-14c0,-1.65 1.35,-3 3,-3z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="15"
+                android:startY="16"
+                android:endX="35"
+                android:endY="36"
+                android:type="linear">
+                <item android:offset="0" android:color="#FFD700" />
+                <item android:offset="1" android:color="#FF7B00" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Rupee symbol in white -->
+    <path
+        android:pathData="M22.5,21.5h6v1.5h-6v1h6v1.5h-6c0,0.1 0,0.25 0,0.25c0.55,0.65 1.65,1.8 3.45,3.45l-2,2l-3.85,-3.85c-0.25,-0.25 -0.45,-0.7 -0.45,-1.15v-2.9h-2.25v-1.5h2.25v-1h-2.25v-1.5h2.25L22.5,21.5z"
+        android:fillColor="#ffffff" />
+
+    <!-- Upward Trend Arrow -->
+    <path
+        android:pathData="M10,34 C14,31 17,23 24,21 C30,19.5 34,16 35,15"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:startX="10"
+                android:startY="34"
+                android:endX="35"
+                android:endY="15"
+                android:type="linear">
+                <item android:offset="0" android:color="#00FF87" />
+                <item android:offset="1" android:color="#60EFFF" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path
+        android:pathData="M31.5,14.5l3.5,0.5l-0.5,3.5z"
+        android:fillColor="#60EFFF" />
+
 </vector>

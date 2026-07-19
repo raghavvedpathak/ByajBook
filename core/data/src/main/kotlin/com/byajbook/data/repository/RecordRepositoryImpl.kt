@@ -40,7 +40,10 @@ class RecordRepositoryImpl @Inject constructor(
 
     override fun getActiveGivenRecords(): Flow<List<LedgerRecord>> =
         recordDao.getActiveGivenRecords().map { entities ->
-            entities.map { it.toSummaryRecord() }
+            entities.map { entity ->
+                val items = ledgerItemDao.getByRecordId(entity.id)
+                entity.toFullRecord(items, emptyList())
+            }
         }
 
     override fun getAllActiveRecords(): Flow<List<LedgerRecord>> =
@@ -121,18 +124,15 @@ class RecordRepositoryImpl @Inject constructor(
         }
 
     override suspend fun getActiveRecordLastActivityMap(): Map<String, LocalDate?> {
-        val rows = paymentDao.getLatestPaymentDates()
-        val records = recordDao.getAllActiveOnce()
+        val rows = paymentDao.getActiveRecordLastActivityDates()
         
-        val paymentMap = rows.associate { row ->
+        return rows.associate { row ->
             val date = row.lastPaymentDate?.let {
                 runCatching { LocalDateTime.parse(it) }.getOrNull()?.toLocalDate()
                     ?: runCatching { LocalDate.parse(it) }.getOrNull()
             }
             row.recordId to date
         }
-
-        return records.associate { it.id to paymentMap[it.id] }
     }
 
     override suspend fun getTotalPaidByRecordIds(recordIds: List<String>): List<RecordPaymentTotal> {
@@ -157,6 +157,7 @@ class RecordRepositoryImpl @Inject constructor(
         settledDate = settledDate,
         calculatedInterest = calculatedInterest,
         linkedRecordId = linkedRecordId,
+        customerName = customerName,
         items = emptyList(),
         payments = emptyList()
     )
@@ -177,6 +178,7 @@ class RecordRepositoryImpl @Inject constructor(
         settledDate = settledDate,
         calculatedInterest = calculatedInterest,
         linkedRecordId = linkedRecordId,
+        customerName = customerName,
         items = items.map { it.toDomain() },
         payments = payments.map { it.toDomain() }
     )

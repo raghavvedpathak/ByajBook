@@ -20,6 +20,7 @@ data class LedgerRecord(
     val settledDate: LocalDate?,
     val calculatedInterest: Double?,
     val linkedRecordId: String?,
+    val customerName: String? = null,
     val items: List<LedgerItem>,
     val payments: List<Payment>
 )

@@ -22,7 +22,8 @@ object DatabaseModule {
             context,
             AppDatabase::class.java,
             "byajbook.db"
-        ).addMigrations(*Migrations.ALL).build()
+        ).fallbackToDestructiveMigration()
+        .addMigrations(*Migrations.ALL).build()
 
     @Provides
     fun provideCustomerDao(db: AppDatabase) = db.customerDao()

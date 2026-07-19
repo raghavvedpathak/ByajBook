@@ -12,6 +12,9 @@ interface CustomerDao {
     @Query("SELECT * FROM customers WHERE id = :id")
     fun getById(id: String): Flow<CustomerEntity?>
 
+    @Query("SELECT * FROM customers WHERE id = :id")
+    suspend fun getByIdOnce(id: String): CustomerEntity?
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(customer: CustomerEntity)
 
@@ -41,22 +44,53 @@ interface CustomerDao {
 
 @Dao
 interface RecordDao {
-    @Query("SELECT * FROM records WHERE status = :status ORDER BY startDate DESC")
+    @Query("""
+        SELECT r.*, COALESCE(c.name, r.customerName) AS customerName 
+        FROM records r 
+        LEFT JOIN customers c ON r.customerId = c.id 
+        WHERE r.status = :status 
+        ORDER BY r.startDate DESC
+    """)
     fun getByStatus(status: String): Flow<List<RecordEntity>>
 
-    @Query("SELECT * FROM records WHERE customerId = :customerId")
+    @Query("""
+        SELECT r.*, COALESCE(c.name, r.customerName) AS customerName 
+        FROM records r 
+        LEFT JOIN customers c ON r.customerId = c.id 
+        WHERE r.customerId = :customerId
+    """)
     fun getByCustomer(customerId: String): Flow<List<RecordEntity>>
 
-    @Query("SELECT * FROM records WHERE status = 'ACTIVE' AND type = 'GIVEN'")
+    @Query("""
+        SELECT r.*, COALESCE(c.name, r.customerName) AS customerName 
+        FROM records r 
+        LEFT JOIN customers c ON r.customerId = c.id 
+        WHERE r.status = 'ACTIVE' AND r.type = 'GIVEN'
+    """)
     fun getActiveGivenRecords(): Flow<List<RecordEntity>>
 
-    @Query("SELECT * FROM records WHERE status = 'ACTIVE'")
+    @Query("""
+        SELECT r.*, COALESCE(c.name, r.customerName) AS customerName 
+        FROM records r 
+        LEFT JOIN customers c ON r.customerId = c.id 
+        WHERE r.status = 'ACTIVE'
+    """)
     fun getAllActive(): Flow<List<RecordEntity>>
 
-    @Query("SELECT * FROM records WHERE status = 'ACTIVE'")
+    @Query("""
+        SELECT r.*, COALESCE(c.name, r.customerName) AS customerName 
+        FROM records r 
+        LEFT JOIN customers c ON r.customerId = c.id 
+        WHERE r.status = 'ACTIVE'
+    """)
     suspend fun getAllActiveOnce(): List<RecordEntity>
 
-    @Query("SELECT * FROM records WHERE id = :id")
+    @Query("""
+        SELECT r.*, COALESCE(c.name, r.customerName) AS customerName 
+        FROM records r 
+        LEFT JOIN customers c ON r.customerId = c.id 
+        WHERE r.id = :id
+    """)
     suspend fun getByIdOnce(id: String): RecordEntity?
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
@@ -116,8 +150,8 @@ interface PaymentDao {
     @Query("SELECT recordId, SUM(amount) as totalPaid FROM payments WHERE recordId IN (:recordIds) GROUP BY recordId")
     suspend fun getTotalPaidByRecordIds(recordIds: List<String>): List<RecordTotalPaid>
 
-    @Query("SELECT recordId, MAX(date) as lastPaymentDate FROM payments GROUP BY recordId")
-    suspend fun getLatestPaymentDates(): List<RecordActivityRow>
+    @Query("SELECT r.id as recordId, MAX(p.date) as lastPaymentDate FROM records r LEFT JOIN payments p ON p.recordId = r.id WHERE r.status = 'ACTIVE' GROUP BY r.id")
+    suspend fun getActiveRecordLastActivityDates(): List<RecordActivityRow>
 }
 
 // DAO PROJECTION — internal to :core:data. Never expose outside this module.

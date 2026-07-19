@@ -43,6 +43,8 @@ fun DashboardScreen(
     val alertsLoaded by viewModel.alertsLoaded.collectAsStateWithLifecycle()
     val staleDate by viewModel.staleRateDate.collectAsStateWithLifecycle()
     val rates by viewModel.currentRates.collectAsStateWithLifecycle()
+    val rateErrors by viewModel.rateErrors.collectAsStateWithLifecycle()
+    val addCategoryError by viewModel.addCategoryError.collectAsStateWithLifecycle()
     val riskSummary by viewModel.riskSummary.collectAsStateWithLifecycle()
     val safeRecords by viewModel.safeRecords.collectAsStateWithLifecycle()
     val isSafeExpanded by viewModel.isSafeRecordsExpanded.collectAsStateWithLifecycle()
@@ -55,7 +57,7 @@ fun DashboardScreen(
                         Icon(
                             painter = painterResource(id = com.byajbook.ui.R.drawable.ic_byajbook_logo),
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = Color.Unspecified,
                             modifier = Modifier.size(32.dp)
                         )
                         Spacer(Modifier.width(8.dp))
@@ -96,8 +98,11 @@ fun DashboardScreen(
             item {
                 RateManagementCard(
                     rates = rates,
+                    rateErrors = rateErrors,
+                    addCategoryError = addCategoryError,
                     onUpdateRate = viewModel::updateRate,
-                    onAddCategory = viewModel::addCategory
+                    onAddCategory = viewModel::addCategory,
+                    onClearAddCategoryError = viewModel::clearAddCategoryError
                 )
             }
 
@@ -107,6 +112,7 @@ fun DashboardScreen(
                     summary = riskSummary,
                     loaded = alertsLoaded,
                     staleDate = staleDate,
+                    rates = rates,
                     safeRecords = safeRecords,
                     isSafeExpanded = isSafeExpanded,
                     onToggleSafe = viewModel::toggleSafeRecords,
@@ -144,7 +150,7 @@ fun DashboardScreen(
 fun WelcomeHeader(query: String, onQueryChange: (String) -> Unit) {
     Column {
         Text(
-            "Hello, Admin",
+            "WellCome",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold
         )
@@ -220,8 +226,11 @@ fun SummaryCard(
 @Composable
 fun RateManagementCard(
     rates: List<ItemRate>,
-    onUpdateRate: (String, Double) -> Unit,
-    onAddCategory: (String) -> Unit
+    rateErrors: Map<String, String?>,
+    addCategoryError: String?,
+    onUpdateRate: (String, String) -> Unit,
+    onAddCategory: (String) -> Unit,
+    onClearAddCategoryError: () -> Unit
 ) {
     Card(
         shape = MaterialTheme.shapes.large,
@@ -231,24 +240,47 @@ fun RateManagementCard(
             Text("Market Rates", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(12.dp))
             rates.forEach { rate ->
-                RateRow(rate, onUpdateRate)
+                RateRow(
+                    rate = rate,
+                    error = rateErrors[rate.itemCategory],
+                    onUpdate = onUpdateRate
+                )
             }
             
             var newCat by remember { mutableStateOf("") }
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
-                OutlinedTextField(
-                    value = newCat,
-                    onValueChange = { newCat = it },
-                    label = { Text("New Category") },
-                    modifier = Modifier.weight(1f),
-                    shape = MaterialTheme.shapes.medium
-                )
-                Spacer(Modifier.width(8.dp))
-                FilledIconButton(
-                    onClick = { if (newCat.isNotBlank()) { onAddCategory(newCat); newCat = "" } },
-                    shape = MaterialTheme.shapes.medium
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
+            Column(modifier = Modifier.padding(top = 8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = newCat,
+                        onValueChange = { 
+                            newCat = it 
+                            if (addCategoryError != null) onClearAddCategoryError()
+                        },
+                        label = { Text("New Category") },
+                        modifier = Modifier.weight(1f),
+                        isError = addCategoryError != null,
+                        shape = MaterialTheme.shapes.medium
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    FilledIconButton(
+                        onClick = { 
+                            onAddCategory(newCat)
+                            if (addCategoryError == null) {
+                                newCat = ""
+                            }
+                        },
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                    }
+                }
+                if (addCategoryError != null) {
+                    Text(
+                        text = addCategoryError,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(start = 8.dp, top = 4.dp)
+                    )
                 }
             }
         }
@@ -256,20 +288,35 @@ fun RateManagementCard(
 }
 
 @Composable
-fun RateRow(rate: ItemRate, onUpdate: (String, Double) -> Unit) {
+fun RateRow(
+    rate: ItemRate, 
+    error: String?,
+    onUpdate: (String, String) -> Unit
+) {
     var textValue by remember { mutableStateOf(rate.ratePerUnit.toString()) }
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
-        Text(rate.itemCategory, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-        OutlinedTextField(
-            value = textValue,
-            onValueChange = { textValue = it },
-            modifier = Modifier.width(100.dp),
-            singleLine = true,
-            shape = MaterialTheme.shapes.medium,
-            textStyle = MaterialTheme.typography.bodySmall
-        )
-        TextButton(onClick = { textValue.toDoubleOrNull()?.let { onUpdate(rate.itemCategory, it) } }) {
-            Text("Update", style = MaterialTheme.typography.labelMedium)
+    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(rate.itemCategory, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            OutlinedTextField(
+                value = textValue,
+                onValueChange = { textValue = it },
+                modifier = Modifier.width(110.dp),
+                singleLine = true,
+                isError = error != null,
+                shape = MaterialTheme.shapes.medium,
+                textStyle = MaterialTheme.typography.bodySmall
+            )
+            TextButton(onClick = { onUpdate(rate.itemCategory, textValue) }) {
+                Text("Update", style = MaterialTheme.typography.labelMedium)
+            }
+        }
+        if (error != null) {
+            Text(
+                text = error,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.padding(start = 8.dp)
+            )
         }
     }
 }
@@ -280,6 +327,7 @@ fun RiskSection(
     summary: DashboardViewModel.RiskSummary,
     loaded: Boolean,
     staleDate: LocalDate?,
+    rates: List<ItemRate>,
     safeRecords: List<LedgerRecord>,
     isSafeExpanded: Boolean,
     onToggleSafe: () -> Unit,
@@ -313,7 +361,7 @@ fun RiskSection(
             RiskSummaryHeader(summary)
             
             alerts.forEach { group ->
-                AlertCard(group, onClick = { onRecordClick(group.record.id) })
+                AlertCard(group = group, rates = rates, onClick = { onRecordClick(group.record.id) })
             }
 
             SafeRecordsSection(
@@ -355,65 +403,130 @@ fun RiskSummaryHeader(summary: DashboardViewModel.RiskSummary) {
 }
 
 @Composable
-fun AlertCard(group: RecordAlertGroup, onClick: () -> Unit) {
+fun AlertCard(group: RecordAlertGroup, rates: List<ItemRate>, onClick: () -> Unit) {
     val today = remember { LocalDate.now() }
     val financials = remember(group.record) { 
         com.byajbook.calculations.calculateRecordFinancials(group.record, today) 
     }
+    val totalCurrentCollateralValue = remember(group.record, rates) {
+        val rateMap = rates.associateBy { it.itemCategory }
+        group.record.items.sumOf { item ->
+            val rate = rateMap[item.itemCategory]?.ratePerUnit ?: 0.0
+            item.weight * (item.purity / 100.0) * rate
+        }
+    }
+    val projectedOutstanding = remember(group.record, group.totalPaid) {
+        val projectedInterest = com.byajbook.calculations.calculateInterestForPeriod(
+            principal = group.record.principalAmount,
+            rate = group.record.interestRate,
+            start = group.record.startDate.toLocalDate(),
+            end = today.plusMonths(2)
+        )
+        group.record.principalAmount + projectedInterest - group.totalPaid
+    }
+    val itemValueAtLending = remember(group.record) {
+        group.record.items.sumOf { it.itemValue }
+    }
+    val rateMissingAlerts = remember(group.alerts) {
+        group.alerts.filterIsInstance<CollectionAlert.RateMissing>()
+    }
+
+    val isUnderwater = totalCurrentCollateralValue <= financials.totalDue
+    val isOvershoot = projectedOutstanding >= itemValueAtLending
+    val hasTriggered = isUnderwater || isOvershoot || rateMissingAlerts.isNotEmpty()
+
+    val containerColor = if (hasTriggered) {
+        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.1f)
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+    }
     
+    val borderColor = if (hasTriggered) {
+        MaterialTheme.colorScheme.error.copy(alpha = 0.3f)
+    } else {
+        MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+    }
+
     OutlinedCard(
         modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
-        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.1f)),
-        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.error.copy(alpha = 0.3f)))
+        colors = CardDefaults.outlinedCardColors(containerColor = containerColor),
+        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(borderColor))
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = group.record.transactionId,
-                    style = MaterialTheme.typography.labelLarge,
+                    text = "${group.customerName ?: "Unknown"} • ${group.record.transactionId}",
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.error
+                    color = if (hasTriggered) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                 )
-                Text("URGENT", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Black)
+                if (hasTriggered) {
+                    Text(
+                        text = "URGENT",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Black
+                    )
+                }
             }
 
-            val dropAlert = group.alerts.filterIsInstance<CollectionAlert.CollateralDrop>().firstOrNull()
-            val overshootAlert = group.alerts.filterIsInstance<CollectionAlert.OvershootWarning>().firstOrNull()
-            val rateMissing = group.alerts.filterIsInstance<CollectionAlert.RateMissing>()
-            
-            if (dropAlert != null) {
-                RiskMetricRow(
-                    label = "Collateral Drop",
-                    value = formatCurrency(dropAlert.currentCollateralValue),
-                    target = "Due: ${formatCurrency(financials.totalDue)}",
-                    isCritical = true
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Collateral today: ${formatCurrency(totalCurrentCollateralValue)} → Due today: ${formatCurrency(financials.totalDue)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }
-
-            if (overshootAlert != null) {
-                RiskMetricRow(
-                    label = "Overshoot (2mo)",
-                    value = formatCurrency(overshootAlert.projectedOutstanding),
-                    target = "Limit: ${formatCurrency(group.record.items.sumOf { it.itemValue })}",
-                    isCritical = true
-                )
-            }
-
-            rateMissing.forEach { 
-                SuggestionChip(
-                    onClick = {}, 
-                    label = { Text("Missing rate: ${it.itemCategory}") },
-                    colors = SuggestionChipDefaults.suggestionChipColors(containerColor = MaterialTheme.colorScheme.surface)
+                Icon(
+                    imageVector = if (isUnderwater) Icons.Default.Warning else Icons.Default.Check,
+                    contentDescription = null,
+                    tint = if (isUnderwater) Color(0xFFFFB300) else Color(0xFF2E7D32),
+                    modifier = Modifier.size(18.dp)
                 )
             }
 
-            Text(
-                text = "Contact customer immediately to settle dues.",
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Due in 2 months: ${formatCurrency(projectedOutstanding)} → Item value at lending: ${formatCurrency(itemValueAtLending)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Icon(
+                    imageVector = if (isOvershoot) Icons.Default.Warning else Icons.Default.Check,
+                    contentDescription = null,
+                    tint = if (isOvershoot) MaterialTheme.colorScheme.error else Color(0xFF2E7D32),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            if (rateMissingAlerts.isNotEmpty()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    rateMissingAlerts.forEach { alert ->
+                        SuggestionChip(
+                            onClick = {}, 
+                            label = { Text("Missing rate: ${alert.itemCategory}") },
+                            colors = SuggestionChipDefaults.suggestionChipColors(containerColor = MaterialTheme.colorScheme.surface)
+                        )
+                    }
+                }
+            }
+
+            if (isUnderwater || isOvershoot) {
+                Text(
+                    text = "Contact customer now.",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }

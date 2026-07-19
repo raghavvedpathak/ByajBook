@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,6 +31,7 @@ fun ReportsScreen(
 ) {
     val activeTabIndex by viewModel.activeTabIndex.collectAsStateWithLifecycle()
     val isFabVisible by viewModel.isFabVisible.collectAsStateWithLifecycle()
+    val selectedCustomer by viewModel.selectedCustomer.collectAsStateWithLifecycle()
     val pdfUri by viewModel.pdfUri.collectAsStateWithLifecycle()
     
     val customerReports by viewModel.customerReports.collectAsStateWithLifecycle()
@@ -87,7 +90,12 @@ fun ReportsScreen(
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
             when (activeTabIndex) {
                 0 -> OverviewTabContent(overviewStats)
-                1 -> CustomerReportTabContent(customerReports, onCustomerDetail)
+                1 -> CustomerReportTabContent(
+                    reports = customerReports,
+                    selectedCustomer = selectedCustomer,
+                    onCustomerSelected = viewModel::onCustomerSelected,
+                    onDetail = onCustomerDetail
+                )
                 2 -> MonthlyEarningsContent(monthlyEarnings)
                 3 -> OverdueListContent(overdueRecords)
             }
@@ -143,15 +151,43 @@ fun GrandTotalCard(label: String, amount: Double, color: Color) {
 @Composable
 fun CustomerReportTabContent(
     reports: List<CustomerReport>,
+    selectedCustomer: Customer?,
+    onCustomerSelected: (Customer?) -> Unit,
     onDetail: (String) -> Unit
 ) {
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         items(reports) { report ->
+            val isSelected = selectedCustomer?.id == report.customer.id
+            val containerColor = if (isSelected) {
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+            } else {
+                Color.Transparent
+            }
             ListItem(
                 headlineContent = { Text(report.customer.name, fontWeight = FontWeight.Bold) },
-                supportingContent = { Text("Active: ${report.activeRecordCount} · Due: ${formatCurrency(report.totalDue)}") },
-                trailingContent = { Text(formatCurrency(report.totalDue), fontWeight = FontWeight.Bold) },
-                modifier = Modifier.clickable { onDetail(report.customer.id) }
+                supportingContent = { Text("Principal: ${formatCurrency(report.totalPrincipal)} · Interest: ${formatCurrency(report.totalInterestAccrued)}") },
+                trailingContent = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(formatCurrency(report.totalDue), fontWeight = FontWeight.Bold)
+                        IconButton(onClick = { onDetail(report.customer.id) }) {
+                            Icon(Icons.Default.Info, contentDescription = "Details", tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                },
+                leadingContent = if (isSelected) {
+                    { Icon(Icons.Default.Check, contentDescription = "Selected", tint = MaterialTheme.colorScheme.primary) }
+                } else null,
+                colors = ListItemDefaults.colors(containerColor = containerColor),
+                modifier = Modifier.clickable {
+                    if (isSelected) {
+                        onCustomerSelected(null)
+                    } else {
+                        onCustomerSelected(report.customer)
+                    }
+                }
             )
             HorizontalDivider()
         }

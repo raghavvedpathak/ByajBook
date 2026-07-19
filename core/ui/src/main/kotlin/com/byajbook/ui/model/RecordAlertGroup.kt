@@ -14,5 +14,7 @@ import com.byajbook.domain.model.LedgerRecord
  */
 data class RecordAlertGroup(
     val record: LedgerRecord,
-    val alerts: List<CollectionAlert>
+    val alerts: List<CollectionAlert>,
+    val totalPaid: Double = 0.0,
+    val customerName: String? = null
 )

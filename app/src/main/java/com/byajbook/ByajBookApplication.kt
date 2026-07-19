@@ -11,6 +11,7 @@ import com.byajbook.notification.AlarmScheduler
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
+import android.os.StrictMode
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -29,19 +30,28 @@ class ByajBookApplication : Application(), Configuration.Provider {
     
     override fun onCreate() {
         super.onCreate()
+        if (BuildConfig.DEBUG) {
+            StrictMode.setThreadPolicy(
+                StrictMode.ThreadPolicy.Builder()
+                    .detectDiskWrites()
+                    .penaltyDeath()
+                    .build()
+            )
+        }
         // [PRE-BUILD-ACTION-4] Spec Requirement: Create channels on launch
         createNotificationChannels()
         
-        // Initial Alarm Setup
-        setupInitialAlarm()
+        // Run disk operations (preferences and seeding) off the main thread to satisfy StrictMode
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            // Initial Alarm Setup
+            setupInitialAlarm()
 
-        // [W2-DELIVERABLE] Debug Seeding
-        MainScope().launch {
-            runCatching {
-                databaseSeeder.seed()
-            }.onFailure { e ->
-                android.util.Log.e("ByajBookApp", "Seeding failed", e)
-            }
+            // [W2-DELIVERABLE] Debug Seeding - Disabled to ensure 100% clean database
+            // runCatching {
+            //     databaseSeeder.seed()
+            // }.onFailure { e ->
+            //     android.util.Log.e("ByajBookApp", "Seeding failed", e)
+            // }
         }
     }
 

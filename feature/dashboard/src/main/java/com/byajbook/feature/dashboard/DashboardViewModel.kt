@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.byajbook.calculations.computeCollectionAlerts
 import com.byajbook.calculations.getDashboard
 import com.byajbook.domain.model.*
+import com.byajbook.domain.repository.CustomerRepository
 import com.byajbook.domain.repository.ItemRateRepository
 import com.byajbook.domain.repository.RecordRepository
 import com.byajbook.ui.model.RecordAlertGroup
@@ -24,6 +25,7 @@ import kotlin.time.Duration.Companion.milliseconds
 class DashboardViewModel @Inject constructor(
     private val recordRepository: RecordRepository,
     private val itemRateRepository: ItemRateRepository,
+    private val customerRepository: CustomerRepository
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
@@ -34,6 +36,12 @@ class DashboardViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow<UiState<DashboardData>>(UiState.Loading)
     val uiState: StateFlow<UiState<DashboardData>> = _uiState.asStateFlow()
+
+    private val _rateErrors = MutableStateFlow<Map<String, String?>>(emptyMap())
+    val rateErrors = _rateErrors.asStateFlow()
+
+    private val _addCategoryError = MutableStateFlow<String?>(null)
+    val addCategoryError = _addCategoryError.asStateFlow()
 
     private val _isSafeRecordsExpanded = MutableStateFlow(false)
     val isSafeRecordsExpanded = _isSafeRecordsExpanded.asStateFlow()
@@ -82,21 +90,33 @@ class DashboardViewModel @Inject constructor(
     /**
      * [FIX-RATEMISSING-DISPLAY-1] Grouped alerts per record
      */
-    val recordAlertGroups: StateFlow<List<RecordAlertGroup>> = collectionAlerts.map { list ->
-        list.groupBy { 
-            when(it) {
-                is CollectionAlert.CollateralDrop -> it.record.id
-                is CollectionAlert.OvershootWarning -> it.record.id
-                is CollectionAlert.RateMissing -> it.record.id
+    val recordAlertGroups: StateFlow<List<RecordAlertGroup>> = combine(
+        collectionAlerts,
+        customerRepository.getAllCustomers(),
+        recordRepository.getTotalPaidFlow()
+    ) { alerts, customers, totalPaidList ->
+        val customerMap = customers.associateBy { it.id }
+        val totalPaidMap = totalPaidList.associateBy({ it.recordId }, { it.totalPaid })
+        
+        alerts.groupBy { alert ->
+            when(alert) {
+                is CollectionAlert.CollateralDrop -> alert.record.id
+                is CollectionAlert.OvershootWarning -> alert.record.id
+                is CollectionAlert.RateMissing -> alert.record.id
             }
         }.map { (_, group) -> 
+            val record = when(val first = group.first()) {
+                is CollectionAlert.CollateralDrop -> first.record
+                is CollectionAlert.OvershootWarning -> first.record
+                is CollectionAlert.RateMissing -> first.record
+            }
+            val name = customerMap[record.customerId]?.name ?: record.customerName
+            
             RecordAlertGroup(
-                record = when(val first = group.first()) {
-                    is CollectionAlert.CollateralDrop -> first.record
-                    is CollectionAlert.OvershootWarning -> first.record
-                    is CollectionAlert.RateMissing -> first.record
-                },
-                alerts = group
+                record = record,
+                alerts = group,
+                totalPaid = totalPaidMap[record.id] ?: 0.0,
+                customerName = name
             )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -147,8 +167,13 @@ class DashboardViewModel @Inject constructor(
         _selectedTab.value = index
     }
 
-    fun updateRate(category: String, rate: Double) {
-        if (rate <= 0) return
+    fun updateRate(category: String, rateStr: String) {
+        val rate = rateStr.toDoubleOrNull()
+        if (rate == null || rate <= 0) {
+            _rateErrors.value = _rateErrors.value + (category to "Rate must be greater than zero")
+            return
+        }
+        _rateErrors.value = _rateErrors.value + (category to null)
         viewModelScope.launch {
             itemRateRepository.upsertRate(
                 ItemRate(
@@ -163,11 +188,17 @@ class DashboardViewModel @Inject constructor(
     }
 
     fun addCategory(name: String) {
-        if (name.isBlank()) return
+        if (name.isBlank()) {
+            _addCategoryError.value = "Category name cannot be blank"
+            return
+        }
         viewModelScope.launch {
             val existing = itemRateRepository.getCurrentRates().first()
-            if (existing.any { it.itemCategory.equals(name, ignoreCase = true) }) return@launch
-            
+            if (existing.any { it.itemCategory.equals(name, ignoreCase = true) }) {
+                _addCategoryError.value = "Category already exists"
+                return@launch
+            }
+            _addCategoryError.value = null
             itemRateRepository.upsertRate(
                 ItemRate(
                     id = UUID.randomUUID().toString(),
@@ -178,5 +209,9 @@ class DashboardViewModel @Inject constructor(
                 )
             )
         }
+    }
+
+    fun clearAddCategoryError() {
+        _addCategoryError.value = null
     }
 }

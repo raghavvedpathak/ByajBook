@@ -1,6 +1,7 @@
 package com.byajbook
 
 import android.Manifest
+import com.byajbook.notification.AlarmScheduler
 import android.app.AlarmManager
 import android.content.Context
 import android.content.Intent
@@ -55,11 +56,22 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            if (alarmManager.canScheduleExactAlarms()) {
+                AlarmScheduler.scheduleDailyAlarm(this)
+            }
+        }
+    }
 }
 
 @Composable
 fun PermissionManager() {
     val context = LocalContext.current
+    var showExactAlarmPrompt by remember { mutableStateOf(false) }
     
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -77,10 +89,39 @@ fun PermissionManager() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             if (!alarmManager.canScheduleExactAlarms()) {
-                val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}"))
-                context.startActivity(intent)
+                showExactAlarmPrompt = true
             }
         }
+    }
+
+    if (showExactAlarmPrompt) {
+        AlertDialog(
+            onDismissRequest = { showExactAlarmPrompt = false },
+            title = { Text("Exact Alarms Required") },
+            text = { Text("To receive daily overdue collection warnings and reminders at exactly 10:00 AM, please grant the Exact Alarm permission in the system settings.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showExactAlarmPrompt = false
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            try {
+                                val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}"))
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                // catch ActivityNotFoundException
+                            }
+                        }
+                    }
+                ) {
+                    Text("Settings")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExactAlarmPrompt = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 

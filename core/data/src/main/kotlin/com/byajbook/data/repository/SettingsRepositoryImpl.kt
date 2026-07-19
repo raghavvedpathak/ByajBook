@@ -40,6 +40,9 @@ class SettingsRepositoryImpl @Inject constructor(
         settingsDao.upsert(settings.toEntity())
     }
 
+    // KNOWN DEBT: this method is on SettingsRepository for DI convenience only (SettingsViewModel
+    // already injects it). It deletes customers (+ cascaded records/items/payments) and has no relationship to settings.
+    // TODO v2: move to DataManagementRepository when a separate data-management screen is introduced.
     override suspend fun clearTransactionData() {
         database.withTransaction {
             customerDao.deleteAll()
