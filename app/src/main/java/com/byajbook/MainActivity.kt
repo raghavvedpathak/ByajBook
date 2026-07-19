@@ -139,11 +139,16 @@ fun ByajBookApp() {
     }
 
     if (showPaymentModal != null) {
-        PaymentModal(
-            recordId = showPaymentModal!!,
-            onBack = { showPaymentModal = null },
-            onSuccess = { showPaymentModal = null }
-        )
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { showPaymentModal = null },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            PaymentModal(
+                recordId = showPaymentModal!!,
+                onBack = { showPaymentModal = null },
+                onSuccess = { showPaymentModal = null }
+            )
+        }
     }
 
     Scaffold(

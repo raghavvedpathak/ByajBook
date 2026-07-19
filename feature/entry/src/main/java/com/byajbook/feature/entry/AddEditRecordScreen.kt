@@ -183,7 +183,7 @@ fun AddEditRecordForm(
             Text("Collateral Items", style = MaterialTheme.typography.titleMedium)
         }
 
-        items(items) { item ->
+        items(items, key = { it.id }) { item ->
             LedgerItemRow(
                 item = item,
                 onUpdate = viewModel::updateItem,
@@ -291,6 +291,9 @@ fun LedgerItemRow(
     onUpdate: (LedgerItem) -> Unit,
     onRemove: () -> Unit
 ) {
+    var weightText by remember(item.id) { mutableStateOf(if (item.weight == 0.0) "" else item.weight.toString()) }
+    var purityText by remember(item.id) { mutableStateOf(if (item.purity == 0.0) "" else item.purity.toString()) }
+
     Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.padding(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -306,15 +309,29 @@ fun LedgerItemRow(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
-                    value = item.weight.toString(),
-                    onValueChange = { onUpdate(item.copy(weight = it.toDoubleOrNull() ?: 0.0)) },
+                    value = weightText,
+                    onValueChange = { input ->
+                        val cleanInput = input.filter { it.isDigit() || it == '.' }
+                        if (cleanInput.count { it == '.' } <= 1) {
+                            weightText = cleanInput
+                            val dValue = cleanInput.toDoubleOrNull() ?: 0.0
+                            onUpdate(item.copy(weight = dValue))
+                        }
+                    },
                     label = { Text("Weight (g)") },
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
                 OutlinedTextField(
-                    value = item.purity.toString(),
-                    onValueChange = { onUpdate(item.copy(purity = it.toDoubleOrNull() ?: 0.0)) },
+                    value = purityText,
+                    onValueChange = { input ->
+                        val cleanInput = input.filter { it.isDigit() || it == '.' }
+                        if (cleanInput.count { it == '.' } <= 1) {
+                            purityText = cleanInput
+                            val dValue = cleanInput.toDoubleOrNull() ?: 0.0
+                            onUpdate(item.copy(purity = dValue))
+                        }
+                    },
                     label = { Text("Purity (%)") },
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)

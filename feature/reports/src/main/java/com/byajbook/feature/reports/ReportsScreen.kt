@@ -43,11 +43,16 @@ fun ReportsScreen(
 
     LaunchedEffect(pdfUri) {
         pdfUri?.let { uriString ->
-            ShareCompat.IntentBuilder(context)
-                .setType("application/pdf")
-                .setStream(Uri.parse(uriString))
-                .setChooserTitle("Share Report")
-                .startChooser()
+            try {
+                val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                    type = "application/pdf"
+                    putExtra(android.content.Intent.EXTRA_STREAM, Uri.parse(uriString))
+                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Report"))
+            } catch (e: Exception) {
+                android.widget.Toast.makeText(context, "Unable to share: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+            }
             viewModel.onPdfConsumed()
         }
     }

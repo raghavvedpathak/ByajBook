@@ -167,14 +167,55 @@ fun RecordSummaryHeader(record: LedgerRecord, financials: Financials) {
     val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy, HH:mm") }
     Card {
         Column(Modifier.padding(16.dp).fillMaxWidth()) {
-            Text(record.transactionId, style = MaterialTheme.typography.labelLarge)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(record.transactionId, style = MaterialTheme.typography.labelLarge)
+                Text(
+                    record.type.name,
+                    color = if (record.type == RecordType.GIVEN) Color(0xFF2E7D32) else Color(0xFFC62828),
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.labelLarge
+                )
+            }
+            if (!record.customerName.isNullOrBlank()) {
+                Text(record.customerName!!, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            }
             Text(record.startDate.format(formatter), style = MaterialTheme.typography.bodySmall)
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Principal: ${formatCurrency(record.principalAmount)}")
+                Text("Rate: ${record.interestRate}%", style = MaterialTheme.typography.bodyMedium)
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("O/S Interest: ${formatCurrency(financials.outstandingInterest)}", color = Color(0xFFC62828))
+                Text("Status: ${record.status.name}", style = MaterialTheme.typography.bodySmall)
             }
             Text("Total Due: ${formatCurrency(financials.totalDue)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        }
+    }
+
+    // Collateral Items Section
+    if (record.items.isNotEmpty()) {
+        Spacer(Modifier.height(12.dp))
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+            Column(Modifier.padding(16.dp).fillMaxWidth()) {
+                Text("Collateral Items (${record.items.size})", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+                record.items.forEach { item ->
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    Text(item.name, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Weight: ${item.weight}g", style = MaterialTheme.typography.bodySmall)
+                        Text("Purity: ${item.purity}%", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Rate: ${formatCurrency(item.rate)}/g", style = MaterialTheme.typography.bodySmall)
+                        Text("Value: ${formatCurrency(item.itemValue)}", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (item.lendPercentage > 0) {
+                        Text("Lend: ${item.lendPercentage}% → ${formatCurrency(item.lendableAmount)}", style = MaterialTheme.typography.bodySmall, color = Color(0xFF1565C0))
+                    }
+                }
+            }
         }
     }
 }

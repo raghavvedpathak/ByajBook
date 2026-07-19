@@ -28,6 +28,8 @@ import com.byajbook.ui.UiState
 import com.byajbook.ui.formatCurrency
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -304,7 +306,8 @@ fun RateRow(
                 singleLine = true,
                 isError = error != null,
                 shape = MaterialTheme.shapes.medium,
-                textStyle = MaterialTheme.typography.bodySmall
+                textStyle = MaterialTheme.typography.bodySmall,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
             )
             TextButton(onClick = { onUpdate(rate.itemCategory, textValue) }) {
                 Text("Update", style = MaterialTheme.typography.labelMedium)

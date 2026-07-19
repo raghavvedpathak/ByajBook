@@ -35,7 +35,11 @@ class RecordRepositoryImpl @Inject constructor(
 
     override fun getRecordsByCustomer(customerId: String): Flow<List<LedgerRecord>> =
         recordDao.getByCustomer(customerId).map { entities ->
-            entities.map { it.toSummaryRecord() }
+            entities.map { entity ->
+                val items = ledgerItemDao.getByRecordId(entity.id)
+                val payments = paymentDao.getByRecordIdOnce(entity.id)
+                entity.toFullRecord(items, payments)
+            }
         }
 
     override fun getActiveGivenRecords(): Flow<List<LedgerRecord>> =

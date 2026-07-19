@@ -14,8 +14,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.byajbook.domain.model.Settings
-import com.byajbook.ui.UiState
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import com.byajbook.ui.UiState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -142,7 +144,8 @@ fun SettingsContent(
             value = settings.phone,
             onValueChange = { onUpdate(settings.copy(phone = it)) },
             label = { Text("Phone") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
         )
 
         OutlinedTextField(
