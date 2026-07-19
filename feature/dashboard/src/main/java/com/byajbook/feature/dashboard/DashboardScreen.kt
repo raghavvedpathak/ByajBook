@@ -505,17 +505,3 @@ fun RecordRow(record: LedgerRecord, onClick: () -> Unit) {
         }
     }
 }
-
-@Composable
-fun RecordRow(record: LedgerRecord, onClick: () -> Unit) {
-    val formatter = remember { DateTimeFormatter.ofPattern("dd/MM/yyyy, HH:mm") }
-    Surface(onClick = onClick) {
-        Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                Text(record.transactionId, style = MaterialTheme.typography.titleMedium)
-                Text(formatCurrency(record.principalAmount), style = MaterialTheme.typography.titleMedium)
-            }
-            Text(record.startDate.format(formatter), style = MaterialTheme.typography.bodySmall)
-        }
-    }
-}
